@@ -22,36 +22,78 @@
 #include "libilbm.c"
 
 #include <stdio.h>
+#include <glob.h>
+#include <strings.h>
 
 void print_img(ilbm_image * p_img, uint32_t col_max, double aspect, uint32_t charset_no);
 
-int main(int argv, char **args){
+int main(int argc, char **argv){
     
-    if(argv != 2){
-        printf("Usage: %s <filename>", args[0]);
-        return 1;
-    }
-    
-    FILE * file_p = fopen(args[1], "rb");
-
-    ilbm_image * p_img = ilbm_read(file_p);
-
-    fclose(file_p);
-    
-    if(p_img->error == ILBM_OK){
-        log_info("successfully parsed");
-
-        print_img(p_img, 120, 4.0 / 2.0, 0);
-
-        return 0;
-    }else{
-        char err_str[64];
-        ilbm_error_snprint(err_str, sizeof(err_str), p_img);
-        log_error("parsing failed: %s", err_str);
+    if(argc < 2 || argc > 3){
+        printf("Usage: %s [-vvv] <filename/pattern>", argv[0]);
         return 1;
     }
 
-    ilbm_free(p_img);
+    const int VERBOSE =
+        strncmp(argv[1], "-vvv", 5) == 0 ? 3 :
+        strncmp(argv[1], "-vv", 4) == 0 ? 2 :
+        strncmp(argv[1], "-v", 3) == 0 ? 1 : 0
+    ;
+
+    switch(VERBOSE){
+        case 0: log_set_verbosity(0); break;
+        case 3: log_set_verbosity(4); break;
+        default: break;
+    }
+    
+    if(VERBOSE == 0){
+        log_set_verbosity(0);
+    }
+
+    glob_t globbuf;    
+    
+    if(glob(argv[argc - 1], 0, NULL, &globbuf) == 0){
+       char ** pathv = globbuf.gl_pathv;
+
+       for(; *pathv; pathv++){
+
+            FILE * file_p = fopen(*pathv, "rb");
+
+            if(file_p){
+
+                const char *ext = strrchr(*pathv, '.');
+
+                int use_lbm = 0;
+                if(ext != NULL && strncasecmp(ext + 1, "LBM", 4) == 0){
+                    use_lbm = 1;
+                }
+
+                ilbm_image * p_img = ilbm_read(file_p, use_lbm ? ILBM_FORMAT_PBM : ILBM_FORMAT_AUTO);
+
+                fclose(file_p);
+                
+                if(p_img->error == ILBM_OK){
+                    printf("%s: %dx%d [%c%c%c%c]\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
+
+                    if(VERBOSE >= 2){
+                       print_img(p_img, 120, 4.0 / 2.0, 0);                    
+                    }
+                }else{
+                    char err_str[64];
+                    snprintf(err_str, sizeof(err_str), "%s", ilbm_error_strs[p_img->error]);
+                    log_error("%s: parsing failed: %s\n", *pathv, err_str);
+                }
+
+                ilbm_free(p_img);        
+            }else{
+                log_error("%s: failed to open file\n", *pathv);
+            }                         
+       }
+
+       globfree(&globbuf);
+   }   
+
+   return 0;
 }
 
 void print_img(ilbm_image * p_img, uint32_t col_max, double aspect, uint32_t charset_no) {

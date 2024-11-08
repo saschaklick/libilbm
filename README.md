@@ -32,7 +32,7 @@ When it detects a valid chunk structure in a file but the chunk identifiers do n
 
 The GIMP plugin supports detection of standardized ILBM and some obfuscated variants, using GIMP's magic load handler to support files without *.ilbm* extensions.
 
-The magic loader is limited to the official magic identifier and a few known obfuscated magic identifiers. To make sure that GIMP will use *libilbm* to open an unknown file add an `.ilbm` file extension to the image file.
+The magic loader is limited to the official magic identifier and a few known obfuscated magic identifiers. To make sure that GIMP will use *libilbm* to open an unknown file add an *.ilbm* file extension to the image file.
 
 ## Source and test images used
 

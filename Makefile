@@ -9,4 +9,4 @@ build_cli:
 	/usr/bin/gcc -fdiagnostics-color=always -g -o ilbm_cli ./src/ilbm_cli.c
 
 test_cli: build_cli
-	./ilbm_cli examples/NEOLOGO.BRS_NEO_WhalesVoyage.ilbm
+	./ilbm_cli -vv examples/NEOLOGO.BRS_NEO_WhalesVoyage.ilbm

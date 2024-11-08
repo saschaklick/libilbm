@@ -58,7 +58,7 @@ GimpPlugInInfo PLUG_IN_INFO = {
 MAIN()
 
 const char * ilbm_magics[] = { "FORM", "NEO!" };
-char       * magics[(sizeof(ilbm_magics) / sizeof(ilbm_magics[0])) * 18 + 1];
+char         magics[(sizeof(ilbm_magics) / sizeof(ilbm_magics[0])) * 18 + 1];
 
 static void query(void) {
     gimp_install_procedure(LOAD_PROCEDURE_ILBM,
@@ -77,10 +77,10 @@ static void query(void) {
 
     char * p_magic = magics;
     for(uint32_t i = 0; i < sizeof(ilbm_magics) / sizeof(ilbm_magics[0]); i++){
-        p_magic += snprintf(p_magic, sizeof(magics) - (p_magic - magics[0]), "0,long,0x%02x%02x%02x%02x,", ilbm_magics[i][0], ilbm_magics[i][1], ilbm_magics[i][2], ilbm_magics[i][3]);
-    }    
-    
-    gimp_register_magic_load_handler(LOAD_PROCEDURE_ILBM, "lbm,ilbm", "", magics);            
+        p_magic += snprintf(p_magic, sizeof(magics) - (p_magic - &magics[0]), "0,long,0x%02x%02x%02x%02x,", ilbm_magics[i][0], ilbm_magics[i][1], ilbm_magics[i][2], ilbm_magics[i][3]);
+    }        
+
+    gimp_register_magic_load_handler(LOAD_PROCEDURE_ILBM, "lbm,ilbm,pbm", "", magics);                
 }
 
 static void run(const gchar * plugin_procedure_name, gint nparams, const GimpParam * param, gint * nreturn_vals, GimpParam ** return_vals) {
@@ -138,7 +138,7 @@ int read_image(const char * filename) {
         return -1;
     }
     
-    ilbm_image * p_first = ilbm_read(file_p);
+    ilbm_image * p_first = ilbm_read(file_p, ILBM_FORMAT_AUTO);
 
     fclose(file_p);
 

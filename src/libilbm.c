@@ -55,6 +55,7 @@ ilbm_chunk * ilbm_read_chunk(FILE * file_p) {
     }
 
     p_chunk->size = UINT32_BE(p_chunk->size);
+    p_chunk->next_chunk = NULL;
 
     uint32_t c_size = p_chunk->size;
     
@@ -87,7 +88,7 @@ ilbm_chunk * ilbm_read_chunk(FILE * file_p) {
     return p_chunk;
 }
 
-ilbm_image * ilbm_read(FILE *file_p) {
+ilbm_image * ilbm_read(FILE *file_p, ILBM_FORMAT format) {
 
     log_info("libilbm %s", LIBILBM_VERSION);
 
@@ -101,9 +102,12 @@ ilbm_image * ilbm_read(FILE *file_p) {
         return NULL;
     }
 
+    p_img->format = ILBM_FORMAT_ILBM;
     p_img->error = ILBM_OK;    
     p_img->warnings = 0;
     p_img->next_image = NULL;
+    p_img->pixels = NULL;
+    p_img->palette = NULL;
     p_img->alpha = NULL;
 
     p_img->first_chunk = NULL;
@@ -121,13 +125,17 @@ ilbm_image * ilbm_read(FILE *file_p) {
         p_img->warnings |= (1 << ILBM_WARN_FORM_BY_POSITION);        
     }
 
+    if(format == ILBM_FORMAT_PBM || memcmp(p_img->form_chunk->content, "PBM ", 4) == 0){
+        p_img->format = ILBM_FORMAT_PBM;
+    }
+
     uint32_t chunk_cnt = 0;    
     ilbm_chunk * chunk = NULL;
     while (1) {
         ilbm_chunk * c = ilbm_read_chunk(file_p);        
         if(c != NULL){
             if(p_img->first_chunk == NULL){
-                p_img->first_chunk = c;
+                p_img->first_chunk = c;                
             }else{
                 chunk->next_chunk = c;
             }
@@ -178,6 +186,8 @@ ilbm_image * ilbm_read(FILE *file_p) {
     bmhd.trans_clr = UINT16_BE(bmhd.trans_clr);
     bmhd.page_width = INT16_BE(bmhd.page_width);
     bmhd.page_height = INT16_BE(bmhd.page_height);
+    
+    log_info("format      : %s", ilbm_format_strs[p_img->format]);
 
     log_info("width       : %i", bmhd.width);
     log_info("height      : %i", bmhd.height);
@@ -198,6 +208,16 @@ ilbm_image * ilbm_read(FILE *file_p) {
     p_img->width = bmhd.width;
     p_img->height = bmhd.height;
     p_img->size = p_img->width * p_img->height; 
+
+    if(p_img->width == 0 || p_img->width > 1024){
+        p_img->error = ILBM_ERROR_ILLEGAL_WIDTH;
+        return p_img;
+    }
+
+    if(p_img->height == 0 || p_img->height > 768){
+        p_img->error = ILBM_ERROR_ILLEGAL_WIDTH;
+        return p_img;
+    }
 
     if(bmhd.mask != 0){
         p_img->alpha = (uint8_t *)malloc(p_img->size);
@@ -286,18 +306,9 @@ ilbm_image * ilbm_read(FILE *file_p) {
 
             uint8_t byte = body_chunk->content[byte_i];                        
             byte_i++;
-
-            log_dev("act: %c len: %3d | r: %3d c: %3d p: %d", byte > 128 ? 'r' : byte < 128 ? 'l' : 'e', byte > 128 ? 257 - byte : byte + 1, row_no, col_no, plane_no);
-
-            if(col_no >= p_img->width){
-                col_no = 0;
-                plane_no++;
-                if(plane_no == bmhd.num_planes){
-                    plane_no = 0;
-                    row_no++;
-                }
-            }
             
+            log_dev("act: %c len: %3d next: %3d| r: %3d c: %3d p: %d", byte > 128 ? 'r' : byte < 128 ? 'l' : 'e', byte > 128 ? 257 - byte : byte + 1, body_chunk->content[byte_i], row_no, col_no, plane_no);
+
             if(byte > 128){
                 if(byte_i >= body_chunk->size){
                     p_img->error = ILBM_ERROR_BODY_SHORT_REPEAT;                    
@@ -307,19 +318,38 @@ ilbm_image * ilbm_read(FILE *file_p) {
                 uint8_t repeat = body_chunk->content[byte_i];
                 byte_i++;
                 
-                for(uint32_t i = 0; i < 257 - byte; i++){                    
-                    if(col_no >= p_img->width) break;
-
-                    for(uint32_t ii = 0; ii < 8; ii++){                        
-                        if(col_no >= p_img->width) break;
-                        
-                        if(repeat & (0x80 >> ii)){
-                            p_img->pixels[row_no * p_img->width + col_no] |= (1 << plane_no);                            
-                        }
-                        col_no++;                        
-                    }
+                switch(p_img->format){
+                    case ILBM_FORMAT_ILBM:
+                        for(uint32_t i = 0; i < 257 - byte; i++){                    
+                            for(uint32_t ii = 0; ii < 8; ii++){                        
+                                if(col_no >= p_img->width){
+                                    col_no = 0;
+                                    plane_no++;
+                                    if(plane_no == bmhd.num_planes){
+                                        plane_no = 0;
+                                        row_no++;
+                                    }
+                                }
+                                
+                                if(repeat & (0x80 >> ii)){
+                                    p_img->pixels[row_no * p_img->width + col_no] |= (1 << plane_no);                            
+                                }                        
+                                col_no++;                      
+                            }
+                        }                        
+                        break;
+                    case ILBM_FORMAT_PBM:
+                        for(uint32_t i = 0; i < 257 - byte; i++){                                                
+                            if(col_no >= p_img->width){
+                                col_no = 0;
+                                row_no++;
+                            }
+                                
+                            p_img->pixels[row_no * p_img->width + col_no] = repeat;                                                        
+                            col_no++;                      
+                        }                        
+                        break;
                 }
-
             }else
             if(byte < 128){
                 for(uint32_t i = 0; i < (byte + 1); i++){
@@ -331,14 +361,35 @@ ilbm_image * ilbm_read(FILE *file_p) {
                     uint8_t literal = body_chunk->content[byte_i];
                     byte_i++;
 
-                    for(uint32_t ii = 0; ii < 8; ii++){                        
-                        if(col_no >= p_img->width) break;
+                    switch(p_img->format){
+                        case ILBM_FORMAT_ILBM:
+                            for(uint32_t ii = 0; ii < 8; ii++){                        
+                                if(col_no >= p_img->width){
+                                    col_no = 0;
+                                    plane_no++;
+                                    if(plane_no == bmhd.num_planes){
+                                        plane_no = 0;
+                                        row_no++;
+                                    }
+                                }
 
-                        if(literal & (0x80 >> ii)){
-                            p_img->pixels[row_no * p_img->width + col_no] |= (1 << plane_no);
-                        }
-                        col_no++;
-                    }                    
+                                if(literal & (0x80 >> ii)){
+                                    p_img->pixels[row_no * p_img->width + col_no] |= (1 << plane_no);
+                                }
+                                col_no++;
+                            }                    
+                            break;
+                        case ILBM_FORMAT_PBM:
+                            if(col_no >= p_img->width){
+                                col_no = 0;
+                                row_no++;
+                            }
+
+                            p_img->pixels[row_no * p_img->width + col_no] = literal;
+                            
+                            col_no++;                    
+                            break;
+                    }
                 }
             }else{
                 break;
@@ -396,7 +447,7 @@ ilbm_image * ilbm_read(FILE *file_p) {
 
     p_img->color_count = cmap_chunk->size / 3;
     p_img->palette = (uint8_t *)malloc(cmap_chunk->size);
-    if(p_img->pixels == NULL){
+    if(p_img->palette == NULL){
         log_error("palette malloc failed");        
         return p_img;
     }
@@ -423,24 +474,24 @@ void ilbm_free(ilbm_image * p_first_img) {
     ilbm_image * p_img = p_first_img;
 
     while(p_img != NULL){
-    
         ilbm_chunk * p_chunk = p_img->first_chunk;
         while(p_chunk != NULL){
-            ilbm_chunk * p_tmp = (void *)p_chunk;        
+            ilbm_chunk * p_tmp = (void *)p_chunk;                    
+
             if(p_chunk->content != NULL) free(p_chunk->content);
             p_chunk = p_chunk->next_chunk;
             free(p_tmp);
         }
         
-        ilbm_image * p_tmp = p_img;        
-        
         if(p_img->pixels != NULL) free((void *)p_img->pixels);
         if(p_img->palette != NULL) free((void *)p_img->palette);
         if(p_img->alpha != NULL) free((void *)p_img->alpha);
         
-        p_img = p_img->next_image;
+        ilbm_image * p_tmp = p_img;        
         
-        free((void *)p_img);
+        p_img = p_img->next_image;
+
+        free((void *)p_tmp);        
     }
 }
 
@@ -468,6 +519,10 @@ int ilbm_warn_snprint(char *buf, size_t len, ilbm_image * p_img, ILBM_WARNING wa
         case ILBM_WARN_CMAP_BY_MIN_SIZE: if(p_img->cmap_chunk->name != NULL) return snprintf(buf, len, "Oversized palette chunk \"%4.4s\" instead of \"CMAP\"", p_img->cmap_chunk->name);
     }
     return 0;
+}
+
+void log_set_verbosity(int verbosity) {
+    log_verbosity = verbosity;
 }
 
 void log_dev(const char *format, ...) {

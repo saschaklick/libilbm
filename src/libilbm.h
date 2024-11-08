@@ -28,12 +28,21 @@
 
 #define LIBILBM_VER_MAJ 0
 #define LIBILBM_VER_MIN 1
-#define LIBILBM_VER_REV 2
+#define LIBILBM_VER_REV 3
 #define LIBILBM_VERSION XSTR(LIBILBM_VER_MAJ) "." XSTR(LIBILBM_VER_MIN) "." XSTR(LIBILBM_VER_REV)
 
 #ifndef LIBILBM_VERBOSITY
     #define LIBILBM_VERBOSITY 0
 #endif
+
+enum {
+    ILBM_FORMAT_ILBM,
+    ILBM_FORMAT_PBM,
+    ILBM_FORMAT_AUTO,
+    ILBM_FORMAT_EOL
+} typedef ILBM_FORMAT;
+
+const char * ilbm_format_strs[] = { "ILBM", "PBM" };
 
 enum {
     ILBM_BMHD,
@@ -52,6 +61,8 @@ enum {
 
 enum {
     ILBM_OK,
+    ILBM_ERROR_ILLEGAL_WIDTH,
+    ILBM_ERROR_ILLEGAL_HEIGHT,
     ILBM_ERROR_NO_CHUNKS,
     ILBM_ERROR_FORM_MISSING,
     ILBM_ERROR_BMHD_MISSING,
@@ -61,6 +72,8 @@ enum {
     ILBM_ERROR_BODY_SHORT_LITERAL,    
     ILBM_ERROR_EOL
 } typedef ILBM_ERROR;
+
+const char * ilbm_error_strs[] = { "OK", "Illegal width", "Illegal height", "No chunks found", "Magic missing", "Header missing", "Body missing", "Colormap missing", "Short repeat in body", "Short literal in body" };
 
 enum {
     ILBM_WARN_FORM_BY_POSITION,
@@ -98,6 +111,7 @@ struct __attribute__((packed)) {
 } typedef ilbm_head;
 
 struct ilbm_image {
+    ILBM_FORMAT         format;
     uint32_t            width;
     uint32_t            height;
     uint32_t            size;
@@ -115,13 +129,15 @@ struct ilbm_image {
     struct ilbm_image * next_image;
 } typedef ilbm_image;
 
-ilbm_image * ilbm_read(FILE *file_p);
+ilbm_image * ilbm_read(FILE *file_p, ILBM_FORMAT format);
 
 void ilbm_free(ilbm_image * p_img);
 
 int ilbm_error_snprint(char *buf, size_t len, ilbm_image * p_img);
 
 int ilbm_warn_snprint(char *buf, size_t len, ilbm_image * p_img, ILBM_WARNING warning);
+
+void log_set_verbosity(int verbosity);
 
 void log_dev(const char *format, ...);
 
