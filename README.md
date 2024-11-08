@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Install **gimptool-2.0** to compile and install ```/src/file_ilbm.c``` which implements a GIMP 2.10 loader plugin using the include ```src/libilbm.c``` ILBM parser library.
+Install **gimptool-2.0** to compile and install ```/src/file_ilbm.c``` which implements a GIMP 2.10 loader plugin using the include ```src/libilbm.c``` ILBM parser library. **gimptool-2.0** is available in most if not all package managers that also provide GIMP itself.
 
 ## Installation
 
@@ -24,6 +24,8 @@ When it detects a valid chunk structure in a file but the chunk identifiers do n
 
 The GIMP plugin supports detection of standardized ILBM and some obfuscated variants, using GIMP's magic load handler to support files without *.ilbm* extensions.
 
+The magic loader is limited to the official magic identifier and a few known obfuscated magic identifiers. To make sure that GIMP will use *libilbm* to open an unknown file add an `.ilbm` file extension to the image file.
+
 ## Source and test images used
 
 The library was development against and tested with the following source ILBM images.
@@ -36,6 +38,4 @@ The library was development against and tested with the following source ILBM im
 
 * ["EA IFF 85" Standard for Interchange Format Files](https://www.martinreddy.net/gfx/2d/IFF.txt) - Original Electronic Arts standard definition
 * [Interleaved Bitmap (ILBM)](https://en.wikipedia.org/wiki/ILBM) - wikipedia.org
-
-
-
+* 
