@@ -4,11 +4,19 @@
 
 Install **gimptool-2.0** to compile and install ```/src/file_ilbm.c``` which implements a GIMP 2.10 loader plugin using the include ```src/libilbm.c``` ILBM parser library. **gimptool-2.0** is available in most if not all package managers that also provide GIMP itself.
 
-## Installation
+On Debian/Ubuntu/Mint install it by running:
+
+```
+sudo apt-get install libgimp2.0-dev
+```
+
+## Building & installation
 
 ```
 gimptool-2.0 --install src/file-ilbm.c
 ```
+
+There is also a `Makefile` with basic build support.
 
 ## Particularities
 
@@ -38,4 +46,3 @@ The library was development against and tested with the following source ILBM im
 
 * ["EA IFF 85" Standard for Interchange Format Files](https://www.martinreddy.net/gfx/2d/IFF.txt) - Original Electronic Arts standard definition
 * [Interleaved Bitmap (ILBM)](https://en.wikipedia.org/wiki/ILBM) - wikipedia.org
-* 
