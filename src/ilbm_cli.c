@@ -28,9 +28,9 @@
 void print_img(ilbm_image * p_img, uint32_t col_max, double aspect, uint32_t charset_no);
 
 int main(int argc, char **argv){
-    
-    if(argc < 2 || argc > 3){
-        printf("Usage: %s [-vvv] <filename/pattern>", argv[0]);
+
+    if(argc < 2){
+        printf("Usage: %s [-vvv] <filename/pattern>\n", argv[0]);
         return 1;
     }
 
@@ -50,48 +50,69 @@ int main(int argc, char **argv){
         log_set_verbosity(0);
     }
 
-    glob_t globbuf;    
-    
-    if(glob(argv[argc - 1], 0, NULL, &globbuf) == 0){
-       char ** pathv = globbuf.gl_pathv;
+    for(int arg_i = 1; arg_i < argc; arg_i++){
 
-       for(; *pathv; pathv++){
+        if(argv[arg_i][0] == '-'){
+            continue;
+        }
 
-            FILE * file_p = fopen(*pathv, "rb");
+        glob_t globbuf;    
+        
+        if(glob(argv[arg_i], 0, NULL, &globbuf) == 0){
+            char ** pathv = globbuf.gl_pathv;
 
-            if(file_p){
+            for(; *pathv; pathv++){
+                FILE * file_p = fopen(*pathv, "rb");
 
-                const char *ext = strrchr(*pathv, '.');
+                if(file_p){
 
-                int use_lbm = 0;
-                if(ext != NULL && strncasecmp(ext + 1, "LBM", 4) == 0){
-                    use_lbm = 1;
-                }
+                    const char *ext = strrchr(*pathv, '.');
 
-                ilbm_image * p_img = ilbm_read(file_p, use_lbm ? ILBM_FORMAT_PBM : ILBM_FORMAT_AUTO);
-
-                fclose(file_p);
-                
-                if(p_img->error == ILBM_OK){
-                    printf("%s: %dx%d [%c%c%c%c]\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
-
-                    if(VERBOSE >= 2){
-                       print_img(p_img, 120, 4.0 / 2.0, 0);                    
+                    int use_lbm = 0;
+                    if(ext != NULL && strncasecmp(ext + 1, "LBM", 4) == 0){
+                        use_lbm = 1;
                     }
+
+                    ilbm_image * p_img = ilbm_read(file_p, use_lbm ? ILBM_FORMAT_PBM : ILBM_FORMAT_AUTO);
+
+                    fclose(file_p);
+                    
+                    switch(p_img->error){
+                        case ILBM_OK:
+                            printf("%s: %dx%d [%c%c%c%c]\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
+                            if(VERBOSE >= 2){
+                                print_img(p_img, 120, 4.0 / 2.0, 0);                    
+                            }
+                            break;
+                        case ILBM_ERROR_BODY_SHORT_LITERAL:
+                        case ILBM_ERROR_BODY_SHORT_REPEAT:
+                            printf("%s: %dx%d [magic: %c%c%c%c] Compression error\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
+                            break;
+                        case ILBM_ERROR_BMHD_MISSING:
+                        case ILBM_ERROR_CMAP_MISSING:
+                        case ILBM_ERROR_BODY_MISSING:
+                            printf("%s: %dx%d [magic: %c%c%c%c] Mandatory chunk missing\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
+                            break;
+                        case ILBM_ERROR_ILLEGAL_HEIGHT:
+                        case ILBM_ERROR_ILLEGAL_WIDTH:                        
+                            printf("%s: %dx%d [magic: %c%c%c%c] Illegal header value(s)\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
+                            break;
+                        default:
+                            char err_str[64];
+                            snprintf(err_str, sizeof(err_str), "%s", ilbm_error_strs[p_img->error]);
+                            log_error("%s: parsing failed: %s\n", *pathv, err_str);
+                            break;
+                    }                    
+
+                    ilbm_free(p_img);        
                 }else{
-                    char err_str[64];
-                    snprintf(err_str, sizeof(err_str), "%s", ilbm_error_strs[p_img->error]);
-                    log_error("%s: parsing failed: %s\n", *pathv, err_str);
+                    log_error("%s: failed to open file\n", *pathv);
                 }
-
-                ilbm_free(p_img);        
-            }else{
-                log_error("%s: failed to open file\n", *pathv);
             }                         
-       }
+        }
 
-       globfree(&globbuf);
-   }   
+        globfree(&globbuf);
+    }
 
    return 0;
 }
