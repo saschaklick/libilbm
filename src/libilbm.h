@@ -61,6 +61,7 @@ enum {
 
 enum {
     ILBM_OK,
+    ILBM_ERROR_ZERO_SIZE,
     ILBM_ERROR_ILLEGAL_WIDTH,
     ILBM_ERROR_ILLEGAL_HEIGHT,
     ILBM_ERROR_NO_CHUNKS,
@@ -69,11 +70,14 @@ enum {
     ILBM_ERROR_BODY_MISSING,
     ILBM_ERROR_CMAP_MISSING,
     ILBM_ERROR_BODY_SHORT_REPEAT,
-    ILBM_ERROR_BODY_SHORT_LITERAL,    
+    ILBM_ERROR_BODY_SHORT_LITERAL,  
+    ILBM_ERROR_IFF_8SVX,  
+    ILBM_ERROR_IFF_SMUS,  
+    ILBM_ERROR_IFF_ANIM,  
     ILBM_ERROR_EOL
 } typedef ILBM_ERROR;
 
-const char * ilbm_error_strs[] = { "OK", "Illegal width", "Illegal height", "No chunks found", "Magic missing", "Header missing", "Body missing", "Colormap missing", "Short repeat in body", "Short literal in body" };
+const char * ilbm_error_strs[] = { "OK", "Zero size", "Illegal width", "Illegal height", "No chunks found", "Magic missing", "Header missing", "Body missing", "Colormap missing", "Short repeat in body", "Short literal in body", "Unsupported 8SVX sound format", "Unsupported SMUS music format", "Unsupported ANIM animation format" };
 
 enum {
     ILBM_WARN_FORM_BY_POSITION,

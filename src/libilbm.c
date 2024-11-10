@@ -155,6 +155,19 @@ ilbm_image * ilbm_read(FILE *file_p, ILBM_FORMAT format) {
         return p_img;
     }
 
+    if(memcmp(p_img->form_chunk->content, "8SVX", 4) == 0){
+        p_img->error = ILBM_ERROR_IFF_8SVX;
+        return p_img;
+    }
+    if(memcmp(p_img->form_chunk->content, "SMUS", 4) == 0){
+        p_img->error = ILBM_ERROR_IFF_SMUS;
+        return p_img;
+    }
+    if(memcmp(p_img->form_chunk->content, "ANIM", 4) == 0){
+        p_img->error = ILBM_ERROR_IFF_ANIM;
+        return p_img;
+    }
+
     ilbm_chunk * bmhd_chunk = p_img->first_chunk;
     while(bmhd_chunk != NULL){
         if(*(uint32_t *)(bmhd_chunk->name) == *(uint32_t *)"BMHD"){        
@@ -209,12 +222,17 @@ ilbm_image * ilbm_read(FILE *file_p, ILBM_FORMAT format) {
     p_img->height = bmhd.height;
     p_img->size = p_img->width * p_img->height; 
 
-    if(p_img->width == 0 || p_img->width > 1024){
+    if(p_img->size == 0){
+        p_img->error = ILBM_ERROR_ZERO_SIZE;
+        return p_img;
+    }
+    
+    if(p_img->width > 9999){
         p_img->error = ILBM_ERROR_ILLEGAL_WIDTH;
         return p_img;
     }
 
-    if(p_img->height == 0 || p_img->height > 768){
+    if(p_img->height > 9999){
         p_img->error = ILBM_ERROR_ILLEGAL_WIDTH;
         return p_img;
     }
