@@ -35,15 +35,16 @@ int main(int argc, char **argv){
     }
 
     const int VERBOSE =
+        strncmp(argv[1], "-vvvv", 6) == 0 ? 4 :
         strncmp(argv[1], "-vvv", 5) == 0 ? 3 :
         strncmp(argv[1], "-vv", 4) == 0 ? 2 :
         strncmp(argv[1], "-v", 3) == 0 ? 1 : 0
     ;
 
     switch(VERBOSE){
-        case 0: log_set_verbosity(0); break;
+        default: log_set_verbosity(0); break;
         case 3: log_set_verbosity(4); break;
-        default: break;
+        case 4: log_set_verbosity(4); break;
     }
     
     if(VERBOSE == 0){
@@ -79,23 +80,37 @@ int main(int argc, char **argv){
                     
                     switch(p_img->error){
                         case ILBM_OK:
-                            printf("%s: %dx%d [%c%c%c%c]\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
-                            if(VERBOSE >= 2){
+                            printf("\"%-80s\",%4d,%4d,%3d,\"%4.4s\",\"%4.4s\",\"%4.4s\",\"%4.4s\",\"%4.4s\",\n", *pathv, p_img->width, p_img->height, p_img->color_count, p_img->form_chunk->name, p_img->form_chunk->content, p_img->bmhd_chunk->name, p_img->cmap_chunk->name, p_img->body_chunk->name);                    
+                            if(VERBOSE >= 3){
                                 print_img(p_img, 120, 4.0 / 2.0, 0);                    
                             }
                             break;
                         case ILBM_ERROR_BODY_SHORT_LITERAL:
                         case ILBM_ERROR_BODY_SHORT_REPEAT:
-                            printf("%s: %dx%d [magic: %c%c%c%c] Compression error\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
+                            if(VERBOSE >= 1){
+                                printf("\"%-80s\",,,            \"%4.4s\",\"%4.4s\",,,,\"Compression error\"\n", *pathv, p_img->form_chunk->name, p_img->form_chunk->content);                    
+                            }
                             break;
                         case ILBM_ERROR_BMHD_MISSING:
                         case ILBM_ERROR_CMAP_MISSING:
                         case ILBM_ERROR_BODY_MISSING:
-                            printf("%s: %dx%d [magic: %c%c%c%c] Mandatory chunk missing\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
+                            if(VERBOSE >= 1){
+                                printf("\"%-80s\",,,            \"%4.4s\",\"%4.4s\",,,,\"Mandatory chunk missing\"\n", *pathv, p_img->form_chunk->name, p_img->form_chunk->content);                    
+                            }
                             break;
+                        case ILBM_ERROR_ZERO_SIZE:
                         case ILBM_ERROR_ILLEGAL_HEIGHT:
                         case ILBM_ERROR_ILLEGAL_WIDTH:                        
-                            printf("%s: %dx%d [magic: %c%c%c%c] Illegal header value(s)\n", *pathv, p_img->width, p_img->height, p_img->form_chunk->name[0], p_img->form_chunk->name[1], p_img->form_chunk->name[2], p_img->form_chunk->name[3]);                    
+                            if(VERBOSE >= 1){
+                                printf("\"%-80s\",,,            \"%4.4s\",\"%4.4s\",\"%4.4s\",,,\"Illegal header value(s)\",\"%s\"\n", *pathv, p_img->form_chunk->name, p_img->form_chunk->content, p_img->bmhd_chunk->name, ilbm_error_strs[p_img->error]);                    
+                            }
+                            break;
+                        case ILBM_ERROR_IFF_8SVX:                        
+                        case ILBM_ERROR_IFF_SMUS: 
+                        case ILBM_ERROR_IFF_ANIM: 
+                            if(VERBOSE >= 2){
+                                printf("\"%-80s\",,,            \"%4.4s\",\"%4.4s\",,,,\"Non-image IFF file\"\n", *pathv, p_img->form_chunk->name, p_img->form_chunk->content);                    
+                            }
                             break;
                         default:
                             char err_str[64];
